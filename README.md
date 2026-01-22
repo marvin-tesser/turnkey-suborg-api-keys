@@ -3,8 +3,15 @@ Followed these instructions to setup root org: https://docs.turnkey.com/sdks/rea
 
 Quickstart:
 
+
+
 ```
+# Setup env vars
+cp .env.example.env
+
+# Install dependencies
 bun install
 
+# Run
 bun dev
 ```
