@@ -9,16 +9,27 @@ function bufferToHex(buffer: ArrayBuffer): string {
     .join("");
 }
 
-// Export CryptoKeyPair to hex strings for display
-async function exportKeyPairToHex(keyPair: CryptoKeyPair): Promise<{ publicKey: string; privateKey: string }> {
-  // Export public key as raw (uncompressed point with 04 prefix)
-  const publicKeyRaw = await crypto.subtle.exportKey("raw", keyPair.publicKey);
-  // Keep the full uncompressed public key (04 prefix + x + y coordinates)
-  const publicKeyHex = bufferToHex(publicKeyRaw);
+// Compress an uncompressed P-256 public key (04 || X || Y) into SEC1 compressed
+// form (02/03 || X). Turnkey's stamp verifier and credential lookup both
+// require the compressed form; registering uncompressed keys leaves them
+// unusable for API auth.
+function compressP256PublicKey(uncompressedHex: string): string {
+  if (uncompressedHex.length !== 130 || !uncompressedHex.startsWith("04")) {
+    throw new Error("Expected uncompressed P-256 public key (04 || X || Y, 130 hex chars)");
+  }
+  const x = uncompressedHex.slice(2, 66);
+  const y = uncompressedHex.slice(66);
+  const yIsOdd = parseInt(y.slice(-2), 16) % 2 === 1;
+  return (yIsOdd ? "03" : "02") + x;
+}
 
-  // Export private key as JWK to get the 'd' value
+// Export CryptoKeyPair to hex strings. Public key is returned in compressed
+// SEC1 form so it can be registered with Turnkey.
+async function exportKeyPairToHex(keyPair: CryptoKeyPair): Promise<{ publicKey: string; privateKey: string }> {
+  const publicKeyRaw = await crypto.subtle.exportKey("raw", keyPair.publicKey);
+  const publicKeyHex = compressP256PublicKey(bufferToHex(publicKeyRaw));
+
   const privateKeyJwk = await crypto.subtle.exportKey("jwk", keyPair.privateKey);
-  // Convert base64url 'd' value to hex
   const privateKeyBytes = Uint8Array.from(
     atob(privateKeyJwk.d!.replace(/-/g, "+").replace(/_/g, "/")),
     (c) => c.charCodeAt(0)
