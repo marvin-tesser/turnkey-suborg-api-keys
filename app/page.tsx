@@ -127,12 +127,30 @@ function AuthStatus() {
         });
       } else {
         // No sub-org exists for this email yet — create one and log in. The
-        // SDK fills userEmail and the verification token into the signup body.
+        // SDK fills userEmail and the verification token into the signup body,
+        // making the email user the sub-org's only user. The sub-org is named
+        // after the email and gets a default Ethereum wallet (same account
+        // params as the SDK's DEFAULT_ETHEREUM_ACCOUNTS, which
+        // react-wallet-kit doesn't re-export).
         await signUpWithOtp({
           verificationToken,
           contact: email,
           otpType: OtpType.Email,
           publicKey: sessionPublicKey,
+          createSubOrgParams: {
+            subOrgName: email,
+            customWallet: {
+              walletName: "Default Wallet",
+              walletAccounts: [
+                {
+                  curve: "CURVE_SECP256K1",
+                  pathFormat: "PATH_FORMAT_BIP32",
+                  path: "m/44'/60'/0'/0/0",
+                  addressFormat: "ADDRESS_FORMAT_ETHEREUM",
+                },
+              ],
+            },
+          },
         });
       }
     } catch (error) {

@@ -17,4 +17,4 @@ bun dev
 Then log in, then generate API keys. Two login modes:
 
 - **Existing sub-org**: enter a sub-organization ID + email to log in to that specific sub-org.
-- **Email only**: leave the sub-org ID blank. If a sub-org already exists for the email, you're logged into it; otherwise a new sub-org is created and you're logged in.
+- **Email only**: leave the sub-org ID blank. If a sub-org already exists for the email, you're logged into it; otherwise a new sub-org is created and you're logged in. The new sub-org is named after the email, contains only the email user, and is created with a default Ethereum wallet.
