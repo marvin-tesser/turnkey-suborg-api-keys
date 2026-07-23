@@ -14,4 +14,7 @@ bun install
 bun dev
 ```
 
-Then click login button, then generate API keys.
+Then log in, then generate API keys. Two login modes:
+
+- **Existing sub-org**: enter a sub-organization ID + email to log in to that specific sub-org.
+- **Email only**: leave the sub-org ID blank. If a sub-org already exists for the email, you're logged into it; otherwise a new sub-org is created and you're logged in.

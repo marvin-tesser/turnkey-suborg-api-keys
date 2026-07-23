@@ -62,6 +62,7 @@ function AuthStatus() {
     initOtp,
     verifyOtp,
     loginWithOtp,
+    signUpWithOtp,
     createApiKeyPair,
     httpClient,
   } = useTurnkey();
@@ -100,21 +101,40 @@ function AuthStatus() {
     setIsVerifying(true);
     try {
       // The verification token is bound to the public key supplied during
-      // verifyOtp; loginWithOtp must sign with that same key, so mint one
-      // here and reuse it across both calls.
+      // verifyOtp; loginWithOtp/signUpWithOtp must sign with that same key,
+      // so mint one here and reuse it across the calls.
       const sessionPublicKey = await createApiKeyPair();
-      const { verificationToken } = await verifyOtp({
+      const { verificationToken, subOrganizationId } = await verifyOtp({
         otpId,
         otpCode,
         contact: email,
         otpType: OtpType.Email,
         publicKey: sessionPublicKey,
       });
-      await loginWithOtp({
-        verificationToken,
-        organizationId: subOrgId,
-        publicKey: sessionPublicKey,
-      });
+      if (subOrgId) {
+        await loginWithOtp({
+          verificationToken,
+          organizationId: subOrgId,
+          publicKey: sessionPublicKey,
+        });
+      } else if (subOrganizationId) {
+        // No sub-org ID entered, but the email already belongs to one — log
+        // into the sub-org the auth proxy resolved for this email.
+        await loginWithOtp({
+          verificationToken,
+          organizationId: subOrganizationId,
+          publicKey: sessionPublicKey,
+        });
+      } else {
+        // No sub-org exists for this email yet — create one and log in. The
+        // SDK fills userEmail and the verification token into the signup body.
+        await signUpWithOtp({
+          verificationToken,
+          contact: email,
+          otpType: OtpType.Email,
+          publicKey: sessionPublicKey,
+        });
+      }
     } catch (error) {
       console.error("Failed to verify OTP:", error);
       setLoginError(formatTurnkeyError(error));
@@ -263,7 +283,9 @@ function AuthStatus() {
                 Suborg Keys
               </h1>
               <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                Sign in to a specific sub-organization with email OTP.
+                Sign in with email OTP. Enter a sub-organization ID to target a
+                specific sub-org, or leave it blank to use the sub-org linked
+                to your email — creating one if none exists yet.
               </p>
             </header>
 
@@ -274,12 +296,15 @@ function AuthStatus() {
                     htmlFor="subOrgId"
                     className="block text-xs font-medium text-neutral-700 dark:text-neutral-300"
                   >
-                    Sub-organization ID
+                    Sub-organization ID{" "}
+                    <span className="font-normal text-neutral-400 dark:text-neutral-500">
+                      (optional — leave blank to create or use the email&apos;s
+                      sub-org)
+                    </span>
                   </label>
                   <input
                     id="subOrgId"
                     type="text"
-                    required
                     value={subOrgId}
                     onChange={(e) => setSubOrgId(e.target.value.trim())}
                     placeholder="00000000-0000-0000-0000-000000000000"
@@ -311,7 +336,7 @@ function AuthStatus() {
 
                 <button
                   type="submit"
-                  disabled={isSendingCode || !subOrgId || !email}
+                  disabled={isSendingCode || !email}
                   className="w-full rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium px-4 py-2.5 transition-colors cursor-pointer disabled:cursor-not-allowed"
                 >
                   {isSendingCode ? "Sending code..." : "Send code"}
@@ -320,9 +345,18 @@ function AuthStatus() {
             ) : (
               <form onSubmit={handleVerifyAndLogin} className="space-y-4">
                 <p className="text-sm text-neutral-600 dark:text-neutral-300">
-                  Code sent to <strong>{email}</strong>. Enter it below to log
-                  in to{" "}
-                  <code className="font-mono text-xs">{subOrgId}</code>.
+                  Code sent to <strong>{email}</strong>.{" "}
+                  {subOrgId ? (
+                    <>
+                      Enter it below to log in to{" "}
+                      <code className="font-mono text-xs">{subOrgId}</code>.
+                    </>
+                  ) : (
+                    <>
+                      Enter it below to log in to this email&apos;s sub-org, or
+                      create a new one if none exists.
+                    </>
+                  )}
                 </p>
 
                 <div className="space-y-1">
